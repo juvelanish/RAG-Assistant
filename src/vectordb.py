@@ -4,6 +4,7 @@ from typing import List, Dict, Any
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from datetime import datetime
 import uuid
+from PyPDF2 import PdfReader
 
 
 
@@ -68,24 +69,54 @@ class VectorDB:
         """
         print(f"Processing {len(documents)} documents...")
         for doc in documents:
-         text = self.chunk_text(doc["content"])
          r_path =f"data/{doc["name"]}"
-         stats = os.stat(r_path)
-         metadata = {
-                    "file_name": os.path.basename(r_path),
-                    "file_path": r_path,
-                    "created_at": datetime.fromtimestamp(stats.st_birthtime).isoformat(),
-                    "modified_at": datetime.fromtimestamp(stats.st_mtime).isoformat(),
-                    "size_bytes": stats.st_size
-                                }
-         
-         metadatas = [metadata] * len(text)
-         self.collection.add(
-         ids = [str(uuid.uuid4()) for _ in text],
-         documents = text,
-         metadatas = metadatas)
-         print(f"Successfully ingested {doc["name"]}")
-         print("Documents added to vector database")
+         if ".txt" in doc["name"]:
+            chunks = self.chunk_text(doc["content"])
+            
+            stats = os.stat(r_path)
+            metadata = {
+                        "file_name": os.path.basename(r_path),
+                        "file_path": r_path,
+                        "created_at": datetime.fromtimestamp(stats.st_birthtime).isoformat(),
+                        "modified_at": datetime.fromtimestamp(stats.st_mtime).isoformat(),
+                        "size_bytes": stats.st_size
+                                    }
+            
+            metadatas = [metadata] * len(chunks)
+            self.collection.add(
+            ids = [str(uuid.uuid4()) for _ in chunks],
+            documents = chunks,
+            metadatas = metadatas)
+            print(f"Successfully ingested {doc["name"]}")
+          
+         else:
+            chunks = []
+            reader = PdfReader(f"./data/{doc["name"]}")
+            print(f"Pdf file found - {doc["name"]}")
+            print("Reading pages")
+            for page in doc["content"]:
+                    # --- Extract metadata ---
+                    raw_metadata = reader.metadata or {}
+                    metadata = {key.lstrip('/'): value for key, value in raw_metadata.items()}
+                    metadata['page_number'] = page["page_number"]
+                    metadata['source'] = doc["name"]
+
+                    text = page["text"]
+                    chunks = self.chunk_text(text=text)
+                     
+                    metadatas = [metadata] * len(chunks)
+
+                    self.collection.add(
+                        ids = [str(uuid.uuid4()) for _ in chunks],
+                        documents = chunks,
+                        metadatas = metadatas)
+                    
+            print(f"Successfully Ingested {len(reader.pages)} pages from {doc["name"]}.")
+        print("Documents added to vector database")                  
+                            
+            
+
+          
 
     def search(self, query: str, n_results: int = 5) -> Dict[str, Any]:
          """

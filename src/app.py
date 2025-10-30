@@ -12,6 +12,7 @@ import os
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.messages import AIMessage,HumanMessage,SystemMessage
 from colorama import Fore,init
+from PyPDF2 import PdfReader
 # Load environment variables
 load_dotenv()
 
@@ -31,9 +32,21 @@ def load_documents() -> List[str]:
              
              with open(r_path,"r") as doc:
                  content = doc.read()
-                
-                 
-                 results.append({"content":content,"name":docs.name})
+         
+         elif ".pdf" in docs.name:
+                reader =PdfReader(r_path)   
+                content = []
+                for i, page in enumerate(reader.pages, start=1):
+                    text = page.extract_text()
+                    if text:  # only include pages with text
+                     content.append({
+                             "page_number": i,
+                            "text": text.strip()
+                        })
+         else:
+             init(autoreset=True)
+             print("\n" + Fore.RED + "Unsupported file found " + docs.name)
+         results.append({"content":content,"name":docs.name})
     return results
 
 
@@ -59,51 +72,9 @@ class RAGAssistant:
 
         # Initialize vector database
         self.vector_db = VectorDB()
-     
-        self.prompt_template = ChatPromptTemplate.from_template('''
-
-You are a helpful AI research assistant with access to search and text analysis capabilities. Your task is to summarize, extract, and organize relevant information from the given content based on the user’s query.
-
-Guidelines:
-
-Start with a concise briefing (1–2 paragraphs maximum)
-
-Briefly explain what the query is about and summarize the overall findings or insights from the content.
-
-If the provided content is not sufficient to fully answer the query, clearly mention that more data or clarification is needed.
-
-Then, list key relevant points clearly and neatly, following these rules:
-
-Use bullet points for clarity.
-
-Quote directly or paraphrase accurately from the content.
-
-Each point must include any associated metadata (such as source, author, publication date, section title, etc.) if available.
-
-When context suggests relationships or patterns among points, mention them succinctly.
-
-If the content does not contain a direct answer, do the following:
-
-State that the context is insufficient.
-
-Provide possible directions or what type of additional data would be needed to answer the query properly.
-
-Maintain tone and quality:
-
-Keep the language simple, objective, and professional.
-
-Avoid unnecessary verbosity or speculation.
-
-Ensure no key information from the given content is omitted.
-                                                                 
-User’s Question:
-{query}
-
-Data to Analyze:
-{content}
-
-Your Task:
-Follow the above guidelines to summarize and list relevant findings''')
+        with open("./prompt.txt","r") as f:
+            prompt = f.read().replace("$query","{query}").replace("$content$","{content}")
+        self.prompt_template = ChatPromptTemplate.from_template(prompt)
         
         # Create the chain
         self.chain = self.prompt_template | self.llm | StrOutputParser()
@@ -187,8 +158,8 @@ Follow the above guidelines to summarize and list relevant findings''')
 
 
 def main():
-    """Main function to demonstrate the RAG assistant."""
-    try:
+      """Main function to demonstrate the RAG assistant."""
+      try:
         # Initialize the RAG assistant
         print("Initializing RAG Assistant...")
         assistant = RAGAssistant()
@@ -198,7 +169,7 @@ def main():
         sample_docs = load_documents()
         print(f"Loaded {len(sample_docs)} sample documents")
 
-        # assistant.add_documents(sample_docs)
+        assistant.add_documents(sample_docs)
 
         done = False
         init(autoreset=True)
@@ -222,7 +193,7 @@ def main():
                 print("\n")
                 print("-"*134)
 
-    except Exception as e:
+      except Exception as e:
         print(f"Error running RAG assistant: {e}")
         print("Make sure you have set up your .env file with at least one API key:")
         print("- OPENAI_API_KEY (OpenAI GPT models)")
