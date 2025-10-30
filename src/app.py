@@ -177,6 +177,8 @@ def main():
         while not done:
             print('\n \n')
             question = input(Fore.CYAN+"Enter a question or 'quit' to exit: ")
+            if (question.strip() == "") or (question.strip().lower().replace("/chat","")==""):
+             continue
             if question.lower().strip() == "quit":
                 done = True
             elif '/chat' in question.lower():
