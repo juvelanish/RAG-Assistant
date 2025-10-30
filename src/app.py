@@ -4,10 +4,14 @@ from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from vectordb import VectorDB
-from langchain_openai import ChatOpenAI
-from langchain_groq import ChatGroq
+# from langchain_openai import ChatOpenAI
+# from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
-
+from pathlib import Path
+import os 
+from langchain_core.prompts import ChatPromptTemplate
+from langchain.messages import AIMessage,HumanMessage,SystemMessage
+from colorama import Fore,init
 # Load environment variables
 load_dotenv()
 
@@ -20,12 +24,16 @@ def load_documents() -> List[str]:
         List of sample documents
     """
     results = []
-    # TODO: Implement document loading
-    # HINT: Read the documents from the data directory
-    # HINT: Return a list of documents
-    # HINT: Your implementation depends on the type of documents you are using (.txt, .pdf, etc.)
-
-    # Your implementation here
+    dir = Path("data")
+    for docs in dir.glob("*.*"):
+         r_path = f"data/{docs.name}"
+         if ".txt" in docs.name:
+             
+             with open(r_path,"r") as doc:
+                 content = doc.read()
+                
+                 
+                 results.append({"content":content,"name":docs.name})
     return results
 
 
@@ -44,20 +52,62 @@ class RAGAssistant:
                 "No valid API key found. Please set one of: "
                 "OPENAI_API_KEY, GROQ_API_KEY, or GOOGLE_API_KEY in your .env file"
             )
+        #memory for general chats outside knowledge base
+        self.messages = [SystemMessage("You are an AI assistant designed to be helpful by answering questions from your own knowledge base. Be simple and direct")]
+
+
 
         # Initialize vector database
         self.vector_db = VectorDB()
+     
+        self.prompt_template = ChatPromptTemplate.from_template('''
 
-        # Create RAG prompt template
-        # TODO: Implement your RAG prompt template
-        # HINT: Use ChatPromptTemplate.from_template() with a template string
-        # HINT: Your template should include placeholders for {context} and {question}
-        # HINT: Design your prompt to effectively use retrieved context to answer questions
-        self.prompt_template = None  # Your implementation here
+You are a helpful AI research assistant with access to search and text analysis capabilities. Your task is to summarize, extract, and organize relevant information from the given content based on the user’s query.
 
+Guidelines:
+
+Start with a concise briefing (1–2 paragraphs maximum)
+
+Briefly explain what the query is about and summarize the overall findings or insights from the content.
+
+If the provided content is not sufficient to fully answer the query, clearly mention that more data or clarification is needed.
+
+Then, list key relevant points clearly and neatly, following these rules:
+
+Use bullet points for clarity.
+
+Quote directly or paraphrase accurately from the content.
+
+Each point must include any associated metadata (such as source, author, publication date, section title, etc.) if available.
+
+When context suggests relationships or patterns among points, mention them succinctly.
+
+If the content does not contain a direct answer, do the following:
+
+State that the context is insufficient.
+
+Provide possible directions or what type of additional data would be needed to answer the query properly.
+
+Maintain tone and quality:
+
+Keep the language simple, objective, and professional.
+
+Avoid unnecessary verbosity or speculation.
+
+Ensure no key information from the given content is omitted.
+                                                                 
+User’s Question:
+{query}
+
+Data to Analyze:
+{content}
+
+Your Task:
+Follow the above guidelines to summarize and list relevant findings''')
+        
         # Create the chain
         self.chain = self.prompt_template | self.llm | StrOutputParser()
-
+      
         print("RAG Assistant initialized successfully")
 
     def _initialize_llm(self):
@@ -65,7 +115,6 @@ class RAGAssistant:
         Initialize the LLM by checking for available API keys.
         Tries OpenAI, Groq, and Google Gemini in that order.
         """
-        # Check for OpenAI API key
         if os.getenv("OPENAI_API_KEY"):
             model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
             print(f"Using OpenAI model: {model_name}")
@@ -114,15 +163,27 @@ class RAGAssistant:
         Returns:
             Dictionary containing the answer and retrieved context
         """
+        context = self.vector_db.search(input)
         llm_answer = ""
-        # TODO: Implement the RAG query pipeline
-        # HINT: Use self.vector_db.search() to retrieve relevant context chunks
-        # HINT: Combine the retrieved document chunks into a single context string
-        # HINT: Use self.chain.invoke() with context and question to generate the response
-        # HINT: Return a string answer from the LLM
+        
+    
+        for inx in range(len(context["documents"][0][0])):
+            data = llm_answer + context["documents"][0][0][inx] + '\n' + "metadata:" + str(context["metadatas"][0][0][inx])
 
-        # Your implementation here
+        llm_answer = self.chain.invoke({"query":input,"content":data})   
         return llm_answer
+    
+        
+    def chat(self,query):
+        """For general questions
+        Args:
+           query: The question
+        returns the llm's response from its own knowldge base"""
+        reponse = ''
+        self.messages.append(HumanMessage(query))
+        reponse = self.llm.invoke(self.messages)
+        self.messages.append(AIMessage(reponse.content))
+        return reponse
 
 
 def main():
@@ -137,17 +198,29 @@ def main():
         sample_docs = load_documents()
         print(f"Loaded {len(sample_docs)} sample documents")
 
-        assistant.add_documents(sample_docs)
+        # assistant.add_documents(sample_docs)
 
         done = False
-
+        init(autoreset=True)
+        print("\n\n"+ Fore.YELLOW + "For general questions(Outside your custom knowledge base) use '/chat <question>'  ")
         while not done:
-            question = input("Enter a question or 'quit' to exit: ")
-            if question.lower() == "quit":
+            print('\n \n')
+            question = input(Fore.CYAN+"Enter a question or 'quit' to exit: ")
+            if question.lower().strip() == "quit":
                 done = True
+            elif '/chat' in question.lower():
+                print("\n")
+                result = assistant.chat(question.replace("/chat",""))
+                print(Fore.YELLOW + f"AI:{result.content}")
+                print("\n")
+                print("-"*134)
+
             else:
-                result = assistant.query(question)
-                print(result)
+                print('\n')
+                result = assistant.invoke(question)
+                print(Fore.BLUE + f"AI:{result}")
+                print("\n")
+                print("-"*134)
 
     except Exception as e:
         print(f"Error running RAG assistant: {e}")
@@ -156,6 +229,5 @@ def main():
         print("- GROQ_API_KEY (Groq Llama models)")
         print("- GOOGLE_API_KEY (Google Gemini models)")
 
-
 if __name__ == "__main__":
-    main()
+  main()

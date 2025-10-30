@@ -1,7 +1,10 @@
 import os
 import chromadb
 from typing import List, Dict, Any
-from sentence_transformers import SentenceTransformer
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from datetime import datetime
+import uuid
+
 
 
 class VectorDB:
@@ -18,26 +21,21 @@ class VectorDB:
             embedding_model: HuggingFace model name for embeddings
         """
         self.collection_name = collection_name or os.getenv(
-            "CHROMA_COLLECTION_NAME", "rag_documents"
-        )
-        self.embedding_model_name = embedding_model or os.getenv(
-            "EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
-        )
+           "CHROMA_COLLECTION_NAME", "rag_documents")
+      
 
         # Initialize ChromaDB client
         self.client = chromadb.PersistentClient(path="./chroma_db")
-
-        # Load embedding model
-        print(f"Loading embedding model: {self.embedding_model_name}")
-        self.embedding_model = SentenceTransformer(self.embedding_model_name)
+        # Load embedding model - ignored as preferring to use chroma's default embedding model
+        
 
         # Get or create collection
         self.collection = self.client.get_or_create_collection(
             name=self.collection_name,
             metadata={"description": "RAG document collection"},
         )
-
-        print(f"Vector database initialized with collection: {self.collection_name}")
+          
+        print(f"Vector database initialized with collection:{self.collection_name}")
 
     def chunk_text(self, text: str, chunk_size: int = 500) -> List[str]:
         """
@@ -50,27 +48,15 @@ class VectorDB:
         Returns:
             List of text chunks
         """
-        # TODO: Implement text chunking logic
-        # You have several options for chunking text - choose one or experiment with multiple:
-        #
-        # OPTION 1: Simple word-based splitting
-        #   - Split text by spaces and group words into chunks of ~chunk_size characters
-        #   - Keep track of current chunk length and start new chunks when needed
-        #
-        # OPTION 2: Use LangChain's RecursiveCharacterTextSplitter
-        #   - from langchain_text_splitters import RecursiveCharacterTextSplitter
-        #   - Automatically handles sentence boundaries and preserves context better
-        #
-        # OPTION 3: Semantic splitting (advanced)
-        #   - Split by sentences using nltk or spacy
-        #   - Group semantically related sentences together
-        #   - Consider paragraph boundaries and document structure
-        #
-        # Feel free to try different approaches and see what works best!
-
-        chunks = []
         # Your implementation here
-
+        text_splitter = RecursiveCharacterTextSplitter(
+        # Set a really small chunk size, just to show.
+        chunk_size=chunk_size,
+        chunk_overlap=20,
+        length_function=len,
+        is_separator_regex=False,
+    )
+        chunks = text_splitter.split_text(text)
         return chunks
 
     def add_documents(self, documents: List) -> None:
@@ -80,41 +66,50 @@ class VectorDB:
         Args:
             documents: List of documents
         """
-        # TODO: Implement document ingestion logic
-        # HINT: Loop through each document in the documents list
-        # HINT: Extract 'content' and 'metadata' from each document dict
-        # HINT: Use self.chunk_text() to split each document into chunks
-        # HINT: Create unique IDs for each chunk (e.g., "doc_0_chunk_0")
-        # HINT: Use self.embedding_model.encode() to create embeddings for all chunks
-        # HINT: Store the embeddings, documents, metadata, and IDs in your vector database
-        # HINT: Print progress messages to inform the user
-
         print(f"Processing {len(documents)} documents...")
-        # Your implementation here
-        print("Documents added to vector database")
+        for doc in documents:
+         text = self.chunk_text(doc["content"])
+         r_path =f"data/{doc["name"]}"
+         stats = os.stat(r_path)
+         metadata = {
+                    "file_name": os.path.basename(r_path),
+                    "file_path": r_path,
+                    "created_at": datetime.fromtimestamp(stats.st_birthtime).isoformat(),
+                    "modified_at": datetime.fromtimestamp(stats.st_mtime).isoformat(),
+                    "size_bytes": stats.st_size
+                                }
+         
+         metadatas = [metadata] * len(text)
+         self.collection.add(
+         ids = [str(uuid.uuid4()) for _ in text],
+         documents = text,
+         metadatas = metadatas)
+         print(f"Successfully ingested {doc["name"]}")
+         print("Documents added to vector database")
 
     def search(self, query: str, n_results: int = 5) -> Dict[str, Any]:
-        """
-        Search for similar documents in the vector database.
+         """
+            Search for similar documents in the vector database.
 
-        Args:
-            query: Search query
-            n_results: Number of results to return
+            Args:
+                query: Search query
+                n_results: Number of results to return
 
-        Returns:
-            Dictionary containing search results with keys: 'documents', 'metadatas', 'distances', 'ids'
-        """
-        # TODO: Implement similarity search logic
-        # HINT: Use self.embedding_model.encode([query]) to create query embedding
-        # HINT: Convert the embedding to appropriate format for your vector database
-        # HINT: Use your vector database's search/query method with the query embedding and n_results
-        # HINT: Return a dictionary with keys: 'documents', 'metadatas', 'distances', 'ids'
-        # HINT: Handle the case where results might be empty
+            Returns:
+                Dictionary containing search results with keys: 'documents', 'metadatas', 'distances', 'ids'
+            """
+         results = self.collection.query(
+                    query_texts= [
+                        query
+                    ],
+                    
+                    n_results=n_results
 
-        # Your implementation here
-        return {
-            "documents": [],
-            "metadatas": [],
-            "distances": [],
-            "ids": [],
+            )
+    
+         return {
+            "documents": [results["documents"]],
+            "metadatas": [results["metadatas"]],
+            "distances": [results["distances"]],
+            "ids": [results["ids"]],
         }
