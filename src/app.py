@@ -4,8 +4,8 @@ from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from vectordb import VectorDB
-# from langchain_openai import ChatOpenAI
-# from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pathlib import Path
 import os 
