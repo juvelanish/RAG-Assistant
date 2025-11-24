@@ -36,7 +36,7 @@ class VectorDB:
             metadata={"description": "RAG document collection"},
         )
           
-        print(f"Vector database initialized with collection:{self.collection_name}")
+        print(f"Vector database initialized with collection: {self.collection_name}")
 
     def chunk_text(self, text: str, chunk_size: int = 500) -> List[str]:
         """
@@ -69,9 +69,9 @@ class VectorDB:
         """
         print(f"Processing {len(documents)} documents...")
         for doc in documents:
-         r_path =f"data/{doc["name"]}"
-         if ".txt" in doc["name"]:
-            chunks = self.chunk_text(doc["content"])
+            r_path = f"data/{doc['name']}"
+            if ".txt" in doc['name']:
+                chunks = self.chunk_text(doc['content'])
             
             stats = os.stat(r_path)
             # Some platforms (Windows, older filesystems) may not provide st_birthtime.
@@ -85,63 +85,60 @@ class VectorDB:
                         "size_bytes": stats.st_size
                                     }
             
-            metadatas = [metadata] * len(chunks)
-            self.collection.add(
-            ids = [str(uuid.uuid4()) for _ in chunks],
-            documents = chunks,
-            metadatas = metadatas)
-            print(f"Successfully ingested {doc["name"]}")
+                metadatas = [metadata] * len(chunks)
+                self.collection.add(
+                    ids=[str(uuid.uuid4()) for _ in chunks],
+                    documents=chunks,
+                    metadatas=metadatas,
+                )
+                print(f"Successfully ingested {doc['name']}")
           
-         else:
-            chunks = []
-            reader = PdfReader(f"./data/{doc["name"]}")
-            print(f"Pdf file found - {doc["name"]}")
-            print("Reading pages")
-            for page in doc["content"]:
+            else:
+                chunks = []
+                reader = PdfReader(f"./data/{doc['name']}")
+                print(f"Pdf file found - {doc['name']}")
+                print("Reading pages")
+                for page in doc['content']:
                     # --- Extract metadata ---
                     raw_metadata = reader.metadata or {}
                     metadata = {key.lstrip('/'): value for key, value in raw_metadata.items()}
-                    metadata['page_number'] = page["page_number"]
-                    metadata['source'] = doc["name"]
+                    metadata['page_number'] = page['page_number']
+                    metadata['source'] = doc['name']
 
-                    text = page["text"]
-                    chunks = self.chunk_text(text=text)
-                     
+                    text = page['text']
+                    chunks = self.chunk_text(text)
+
                     metadatas = [metadata] * len(chunks)
 
                     self.collection.add(
-                        ids = [str(uuid.uuid4()) for _ in chunks],
-                        documents = chunks,
-                        metadatas = metadatas)
-                    
-            print(f"Successfully Ingested {len(reader.pages)} pages from {doc["name"]}.")
-        print("Documents added to vector database")                  
+                        ids=[str(uuid.uuid4()) for _ in chunks],
+                        documents=chunks,
+                        metadatas=metadatas,
+                    )
+
+                print(f"Successfully Ingested {len(reader.pages)} pages from {doc['name']}.")
+        print("Documents added to vector database")
                             
             
 
           
 
     def search(self, query: str, n_results: int = 5) -> Dict[str, Any]:
-         """
-            Search for similar documents in the vector database.
+        """Search for similar documents in the vector database.
 
-            Args:
-                query: Search query
-                n_results: Number of results to return
+        Args:
+            query: Search query
+            n_results: Number of results to return
 
-            Returns:
-                Dictionary containing search results with keys: 'documents', 'metadatas', 'distances', 'ids'
-            """
-         results = self.collection.query(
-                    query_texts= [
-                        query
-                    ],
-                    
-                    n_results=n_results
+        Returns:
+            Dictionary containing search results with keys: 'documents', 'metadatas', 'distances', 'ids'
+        """
+        results = self.collection.query(
+            query_texts=[query],
+            n_results=n_results,
+        )
 
-            )
-    
-         return {
+        return {
             "documents": [results["documents"]],
             "metadatas": [results["metadatas"]],
             "distances": [results["distances"]],

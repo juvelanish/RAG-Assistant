@@ -1,4 +1,4 @@
-# 🤖 RAG-Based AI Assistant
+# 🤖 RAG Assistant — ChromaDB + LLM demo for document‑grounded QA
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![LangChain](https://img.shields.io/badge/langchain-latest-green.svg)](https://python.langchain.com/)
@@ -35,7 +35,7 @@ A production-ready Retrieval-Augmented Generation (RAG) system that enhances Lar
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/ReadyTensorRAG.git
+git clone https://github.com/juvelanish/RAG-Assistant
 cd ReadyTensorRAG
 
 # Create and activate virtual environment
@@ -49,22 +49,21 @@ pip install -r requirements.txt
 
 ### Configuration
 
-1. Copy the environment template:
-   ```bash
-   copy .env.example .env  # Windows
-   cp .env.example .env    # Linux/Mac
+1. Copy the environment template and edit your API keys:
+   ```powershell
+   copy .env.example .env
+   notepad .env  # or edit with your preferred editor
    ```
 
-2. Edit `.env` with your API key(s):
+2. Minimum environment variables (see `.env.example`):
    ```env
-   OPENAI_API_KEY=sk-...  # OpenAI (Preferred)
-   GROQ_API_KEY=gsk-...   # Groq (Alternative)
-   GOOGLE_API_KEY=aist... # Google (Alternative)
-   
-   # Optional: Model Configuration
-   OPENAI_MODEL=gpt-4-turbo  # Default: gpt-4-mini
-   GROQ_MODEL=llama-3.1-8b   # Default: llama-3.1-8b-instant
-   GOOGLE_MODEL=gemini-pro   # Default: gemini-2.0-flash
+   OPENAI_API_KEY=sk-...       # OpenAI (Preferred)
+   OPENAI_MODEL=gpt-4o-mini    # Default used by the code
+   GROQ_API_KEY=               # Groq (optional)
+   GROQ_MODEL=llama-3.1-8b-instant
+   GOOGLE_API_KEY=             # Google (optional)
+   GOOGLE_MODEL=gemini-2.0-flash
+   CHROMA_COLLECTION_NAME=rag_documents
    ```
 
 ### Adding Documents
@@ -80,20 +79,20 @@ data/
 
 ### Running the Assistant
 
-1. Start the system:
-   ```bash
+1. Start the system (PowerShell example):
+   ```powershell
    python src/app.py
    ```
 
-2. Wait for initialization:
-   ```
+2. Expected startup (examples vary by provider):
+   ```text
    Initializing RAG Assistant...
-   Using OpenAI model: gpt-4-mini
+   Using OpenAI model: gpt-4o-mini
    Vector database initialized with collection: rag_documents
    RAG Assistant initialized successfully
 
    Loading documents...
-   Loaded 7 sample documents
+   Loaded N sample documents
    ```
 
 3. Use the interactive interface:
@@ -118,6 +117,10 @@ data/
    - Regular question: Searches documents and provides contextual answers
    - `/chat <question>`: Direct LLM interaction without document context
    - `quit`: Exit the application
+
+### Step-by-step: from zero to first result
+
+1. 
 
 ### Interactive Features
 
@@ -257,14 +260,7 @@ elif ".docx" in docs.name:  # Example for Word docs
 
 ### Automated Tests
 
-```bash
-# Run all tests
-python -m pytest tests/
-
-# Run specific test categories
-python -m pytest tests/test_vectordb.py
-python -m pytest tests/test_rag.py
-```
+This repository does not include a `tests/` directory by default. See `docs/Evaluation.md` for guidance on creating evaluation scripts and test harnesses for retrieval metrics.
 
 ### Manual Testing Checklist
 
@@ -324,3 +320,15 @@ python -m pytest tests/test_rag.py
    - Use Groq for faster responses
    - Enable persistent storage
    - Optimize document chunk size
+
+   ## 📜 License
+
+   This repository includes a `LICENSE` file in the project root. Please review it for the full legal terms. In short: this project is provided for research and educational purposes; follow the license terms before reusing the code or distributing derivatives.
+
+   ## 📚 Additional Documentation
+
+   In addition to this README, the repository includes focused docs for evaluation, embeddings, and safety:
+   - `docs/Evaluation.md` — retrieval metrics and evaluation workflow
+   - `docs/Embeddings.md` — guidance on embedding model choices and tradeoffs
+   - `docs/Safety.md` — safety, PII handling, and operational guardrails
+
