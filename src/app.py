@@ -4,8 +4,8 @@ from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from vectordb import VectorDB
-from langchain_openai import ChatOpenAI
-from langchain_groq import ChatGroq
+# from langchain_openai import ChatOpenAI
+# from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pathlib import Path
 import os 
@@ -13,6 +13,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.messages import AIMessage,HumanMessage,SystemMessage
 from colorama import Fore,init
 from PyPDF2 import PdfReader
+import json
 # Load environment variables
 load_dotenv()
 
@@ -25,8 +26,22 @@ def load_documents() -> List[str]:
         List of sample documents
     """
     results = []
+    try:
+     with open("log.json","r") as f:
+        log = json.load(f)
+    except Exception as e:
+        log = []
+        with open("log.json","w") as f:
+            json.dump(log,f)
+        
     dir = Path("data")
     for docs in dir.glob("*.*"):
+         if docs.name in log:
+                continue
+         else:
+                log.append(docs.name)
+                with open("log.json","w") as f: 
+                 json.dump(log,f)
          r_path = f"data/{docs.name}"
          if ".txt" in docs.name:
              
@@ -135,12 +150,13 @@ class RAGAssistant:
             Dictionary containing the answer and retrieved context
         """
         context = self.vector_db.search(input)
+      
         llm_answer = ""
-        
+        data = ""
     
         for inx in range(len(context["documents"][0][0])):
-            data = llm_answer + context["documents"][0][0][inx] + '\n' + "metadata:" + str(context["metadatas"][0][0][inx])
-
+            data = data + context["documents"][0][0][inx] + '\n' + "metadata:" + str(context["metadatas"][0][0][inx]) + '\n'
+      
         llm_answer = self.chain.invoke({"query":input,"content":data})   
         return llm_answer
     
@@ -163,8 +179,8 @@ def main():
         # Initialize the RAG assistant
         print("Initializing RAG Assistant...")
         assistant = RAGAssistant()
-
-        # Load sample documents
+          
+        #Load sample documents
         print("\nLoading documents...")
         sample_docs = load_documents()
         print(f"Loaded {len(sample_docs)} sample documents")

@@ -73,18 +73,18 @@ class VectorDB:
             if ".txt" in doc['name']:
                 chunks = self.chunk_text(doc['content'])
             
-            stats = os.stat(r_path)
-            # Some platforms (Windows, older filesystems) may not provide st_birthtime.
-            # Use st_ctime as a fallback for created/creation timestamp when necessary.
-            created_ts = getattr(stats, "st_birthtime", stats.st_ctime)
-            metadata = {
-                        "file_name": os.path.basename(r_path),
-                        "file_path": r_path,
-                        "created_at": datetime.fromtimestamp(created_ts).isoformat(),
-                        "modified_at": datetime.fromtimestamp(stats.st_mtime).isoformat(),
-                        "size_bytes": stats.st_size
-                                    }
-            
+                stats = os.stat(r_path)
+                # Some platforms (Windows, older filesystems) may not provide st_birthtime.
+                # Use st_ctime as a fallback for created/creation timestamp when necessary.
+                created_ts = getattr(stats, "st_birthtime", stats.st_ctime)
+                metadata = {
+                            "file_name": os.path.basename(r_path),
+                            "file_path": r_path,
+                            "created_at": datetime.fromtimestamp(created_ts).isoformat(),
+                            "modified_at": datetime.fromtimestamp(stats.st_mtime).isoformat(),
+                            "size_bytes": stats.st_size
+                                            }
+                
                 metadatas = [metadata] * len(chunks)
                 self.collection.add(
                     ids=[str(uuid.uuid4()) for _ in chunks],
@@ -92,7 +92,7 @@ class VectorDB:
                     metadatas=metadatas,
                 )
                 print(f"Successfully ingested {doc['name']}")
-          
+        
             else:
                 chunks = []
                 reader = PdfReader(f"./data/{doc['name']}")
