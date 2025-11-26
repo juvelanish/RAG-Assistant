@@ -37,6 +37,7 @@ def load_documents() -> List[str]:
     dir = Path("data")
     for docs in dir.glob("*.*"):
          if docs.name in log:
+                print(f"{docs.name} already ingested, skipping...")
                 continue
          else:
                 log.append(docs.name)
@@ -138,7 +139,7 @@ class RAGAssistant:
         """
         self.vector_db.add_documents(documents)
 
-    def invoke(self, input: str, n_results: int = 3) -> str:
+    def invoke(self, input: str,history:bool, n_results: int = 3) -> str:
         """
         Query the RAG assistant.
 
@@ -156,8 +157,13 @@ class RAGAssistant:
     
         for inx in range(len(context["documents"][0][0])):
             data = data + context["documents"][0][0][inx] + '\n' + "metadata:" + str(context["metadatas"][0][0][inx]) + '\n'
-      
         llm_answer = self.chain.invoke({"query":input,"content":data})   
+        if history:
+            history_logger(f'''
+            User's Query: {input}
+            Retrieved Context: {data}   
+            LLM's Answer: {llm_answer}
+            '''+ "\n"+"-"*1360 + "\n")
         return llm_answer
     
         
@@ -171,6 +177,24 @@ class RAGAssistant:
         reponse = self.llm.invoke(self.messages)
         self.messages.append(AIMessage(reponse.content))
         return reponse
+
+
+
+def history_logger(history,filepath="chat_history.txt"):
+    """Logs chat history to a file
+    Args:
+       history: List of messages
+       filepath: Path to the log file
+    """
+    try:
+      with open (filepath,"a") as f:
+        message = f" {history}"
+        f.write(message)
+    except Exception as e:
+        with open (filepath,"w") as f:
+            message = f"{history}"
+            f.write(message)
+
 
 
 def main():
@@ -188,8 +212,11 @@ def main():
         assistant.add_documents(sample_docs)
 
         done = False
+        history =False
         init(autoreset=True)
         print("\n\n"+ Fore.YELLOW + "For general questions(Outside your custom knowledge base) use '/chat <question>'  ")
+        print(Fore.YELLOW +"To log history type /history")
+        print(Fore.YELLOW + "To exit, type 'quit' \n")
         while not done:
             print('\n \n')
             question = input(Fore.CYAN+"Enter a question or 'quit' to exit: ")
@@ -204,12 +231,21 @@ def main():
                 print("\n")
                 print("-"*134)
 
+            elif question.lower().strip() =="/history":
+                history = not history
+                if history:
+                    print(Fore.MAGENTA + "\nChat history enabled.")
+                else:
+                    print(Fore.MAGENTA + "\nChat history disabled.")
+            
             else:
                 print('\n')
-                result = assistant.invoke(question)
+                result = assistant.invoke(question,history)
                 print(Fore.BLUE + f"AI:{result}")
                 print("\n")
                 print("-"*134)
+               
+                    
 
       except Exception as e:
         print(f"Error running RAG assistant: {e}")
